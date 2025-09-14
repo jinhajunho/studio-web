@@ -1,26 +1,125 @@
-@import "tailwindcss";
+/* app/globals.css  — Option B (웜 뉴트럴) 단독 동작 버전: Tailwind 없어도 OK */
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ===== Theme Tokens ===== */
+:root{
+  --bg:#F9FAFB;
+  --surface:#FFFFFF;
+  --text:#1F2937;
+  --muted:#6B7280;
+  --border:#E5E7EB;
+
+  --primary:#7C3AED;      /* 보라 */
+  --primary-ink:#FFFFFF;
+
+  --success:#16A34A;
+  --warning:#F59E0B;
+  --error:#DC2626;
+  --info:#2563EB;
+
+  --radius:18px;
+  --shadow:0 8px 20px rgba(0,0,0,.04);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ===== Base ===== */
+html,body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, sans-serif;
+  font-size:15px; line-height:22px;
+}
+h1{ font-size:26px; line-height:34px; font-weight:600; margin:0 0 8px; }
+h2{ font-size:20px; line-height:28px; font-weight:600; margin:0; }
+
+/* ===== Components ===== */
+.container-page{ max-width:768px; margin:0 auto; padding:24px; }
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  box-shadow:var(--shadow);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.label{ display:block; font-size:14px; color:var(--muted); margin:0 0 6px; }
+
+.input,.select{
+  width:100%;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:#fff;
+  padding:10px 12px;
+  outline:none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.input:focus,.select:focus{
+  border-color:transparent;
+  box-shadow:0 0 0 2px var(--primary);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:10px 16px; border:0; border-radius:var(--radius);
+  font-weight:600; cursor:pointer; transition:opacity .15s ease;
+  box-shadow:0 1px 0 rgba(0,0,0,.04);
 }
+.btn:disabled{ opacity:.6; cursor:not-allowed; }
+.btn-primary{ background:var(--primary); color:var(--primary-ink); }
+.btn-secondary{ background:#F3F4F6; color:var(--text); }
+
+/* Badges (옵션) */
+.badge{
+  display:inline-flex; align-items:center; gap:6px;
+  border-radius:999px; padding:2px 8px; font-size:12px; font-weight:600;
+  background:#EEF2FF; color:#4F46E5;
+}
+
+/* Toast */
+.toast{
+  position:fixed; right:16px; top:16px; z-index:1000;
+  min-width:240px; background:var(--surface); color:var(--text);
+  border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+.toast-success{ border-color:rgba(22,163,74,.2); }
+.toast-error{ border-color:rgba(220,38,38,.2); }
+
+/* ===== Minimal Utilities (Tailwind 대체용) ===== */
+.text-sm{ font-size:14px; line-height:20px; }
+.mt-1{ margin-top:4px; }
+
+.space-y-5 > * + *{ margin-top:20px; }
+.space-y-3 > * + *{ margin-top:12px; }
+
+.grid{ display:grid; }
+.gap-5{ gap:20px; }
+/* Tailwind의 sm:grid-cols-2 대체 */
+@media (min-width:640px){
+  .sm\:grid-cols-2{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+/* 로딩 스켈레톤 대체 */
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+.skel{ height:40px; border-radius:12px; background:#E5E7EB; animation:pulse 1.5s ease-in-out infinite; }
+.skel.sm{ height:24px; width:128px; }
+
+/* 유틸 (로딩 JSX에서 쓰는 클래스 호환) */
+.bg-gray-200{ background:#E5E7EB; } .rounded{ border-radius:12px; }
+.h-6{ height:24px; } .w-32{ width:128px; } .h-10{ height:40px; }
+/* 라디오 버튼도 보라 톤 */
+input[type="radio"]{ accent-color: var(--primary); }
+
+/* 버튼 호버/활성감 */
+.btn-primary:hover{ opacity:.92; }
+.btn-primary:active{ transform: translateY(1px); }
+
+/* 카드 여백 살짝 넉넉하게 */
+.card { padding: 24px; }
+/* 숫자 간격 일정하게 */
+.num{ font-variant-numeric: tabular-nums; }
+
+/* 남은 회차 진행바 */
+.progress{ height:6px; background:#F3F4F6; border-radius:999px; overflow:hidden; }
+.progress > div{ height:100%; background:var(--primary); border-radius:inherit; }
+input[type="radio"]{ accent-color: var(--primary); }
+.btn-primary:hover{ opacity:.92; } .btn-primary:active{ transform: translateY(1px); }

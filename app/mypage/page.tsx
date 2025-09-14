@@ -1,140 +1,108 @@
 // app/mypage/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { useMemo } from 'react';
+import { withAuth } from '@/components/withAuth';
 
-type Balance = {
-  member_id: string;
-  total_given: number;
-  total_used: number;
-  remaining: number;
-  updated_at: string;
-};
-
-type Grant = {
+type Pass = {
   id: string;
-  grant_type: string;
-  base_count: number;
-  promo_name: string | null;
-  promo_bonus: number;
-  extra_count: number;
-  total_granted: number;
-  created_at: string;
+  total: number;
+  remaining: number;
+  issuedAt: string;      // ISO string
+  label?: string | null; // 이벤트명/프로모션명 등
 };
 
-export default function MyPage() {
-  const [loading, setLoading] = useState(true);
-  const [balance, setBalance] = useState<Balance | null>(null);
-  const [grants, setGrants] = useState<Grant[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+/** ⭐ UX 확인용 더미 데이터 — 나중에 Supabase 조회로 교체 */
+const MOCK: Pass[] = [
+  { id: 'p1', total: 12, remaining: 12, issuedAt: '2025-03-20T10:00:00Z', label: '봄맞이 프로모션' },
+  { id: 'p2', total: 10, remaining: 7,  issuedAt: '2025-02-05T09:00:00Z', label: '신규회원' },
+];
 
-  // 로그인 세션 확인 + 데이터 로딩
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // 1) 현재 로그인 세션 확인
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-
-        if (!session?.user) {
-          setError('로그인 필요');
-          return;
-        }
-        setUserEmail(session.user.email ?? null);
-
-        // 2) member_balances 가져오기
-        const { data: balanceData, error: balanceError } = await supabase
-          .from('member_balances')
-          .select('*')
-          .eq('member_id', session.user.id)
-          .single();
-
-        if (balanceError && balanceError.code !== 'PGRST116') {
-          // PGRST116 = not found (row 없음)
-          throw balanceError;
-        }
-        setBalance(balanceData ?? null);
-
-        // 3) 지급 내역(grants) 가져오기
-        const { data: grantData, error: grantError } = await supabase
-          .from('grants')
-          .select(
-            'id, grant_type, base_count, promo_name, promo_bonus, extra_count, total_granted, created_at'
-          )
-          .eq('member_id', session.user.id)
-          .order('created_at', { ascending: false });
-
-        if (grantError) throw grantError;
-        setGrants(grantData ?? []);
-      } catch (e: any) {
-        console.error(e);
-        setError(e?.message ?? String(e));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, []);
-
-  if (loading) return <div className="p-6">불러오는 중…</div>;
-  if (error) return <div className="p-6 text-red-600">에러: {error}</div>;
+function MyPage() {
+  // 최신 발급순 정렬
+  const passes = useMemo(
+    () => [...MOCK].sort((a, b) => +new Date(b.issuedAt) - +new Date(a.issuedAt)),
+    []
+  );
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8 p-6">
-      <h1 className="text-xl font-bold">내 마이페이지</h1>
+    <div className="container-page space-y-5">
+      <div>
+        <h2>내 수강권</h2>
+        <p className="text-sm text-[color:var(--muted)] mt-1">최근 발급순으로 정렬됩니다.</p>
+      </div>
 
-      {/* 회원 정보 */}
-      <section className="rounded-2xl border p-4 shadow-sm">
-        <h2 className="mb-3 font-semibold">내 계정</h2>
-        <p className="text-sm text-gray-700">이메일: {userEmail}</p>
-        {balance ? (
-          <p className="mt-2 text-lg">
-            남은 회차: <b>{balance.remaining}</b> / 총 지급{' '}
-            {balance.total_given}, 사용 {balance.total_used}
-          </p>
-        ) : (
-          <p className="mt-2 text-gray-500">아직 지급 내역이 없습니다.</p>
-        )}
-      </section>
-
-      {/* 지급 내역 */}
-      <section className="rounded-2xl border p-4 shadow-sm">
-        <h2 className="mb-3 font-semibold">지급 내역</h2>
-        {grants.length === 0 && (
-          <p className="text-gray-500">아직 지급 내역이 없습니다.</p>
-        )}
-        <ul className="divide-y">
-          {grants.map((g) => (
-            <li key={g.id} className="py-3 text-sm">
-              <div className="flex justify-between">
-                <span>{g.grant_type}</span>
-                <span className="text-gray-500">
-                  {new Date(g.created_at).toLocaleString()}
-                </span>
-              </div>
-              <div>
-                기본 {g.base_count} + 이벤트 {g.promo_bonus} + 추가{' '}
-                {g.extra_count} ={' '}
-                <b className="text-blue-600">{g.total_granted}</b> 회
-              </div>
-              {g.promo_name && (
-                <div className="text-xs text-gray-500">
-                  이벤트명: {g.promo_name}
+      {passes.length === 0 ? (
+        <div className="card">
+          <p className="text-sm text-[color:var(--muted)]">지급된 수강권이 없습니다.</p>
+        </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2">
+          {passes.map((p) => {
+            const pct = Math.max(0, Math.min(100, Math.round((p.remaining / p.total) * 100)));
+            return (
+              <div key={p.id} className="card space-y-3">
+                {/* 발급일 + 배지 */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="text-sm text-[color:var(--muted)]">
+                    발급일{' '}
+                    {new Date(p.issuedAt).toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </div>
+                  {p.label && <span className="badge">{p.label}</span>}
                 </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
+
+                {/* 수치 + 진행바 */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <div>
+                    <div
+                      className="text-[28px] leading-8 font-semibold"
+                      style={{ fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      총 {p.total}회
+                    </div>
+                    <div
+                      className="text-sm text-[color:var(--muted)] mt-1"
+                      style={{ fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      남은 {p.remaining}회
+                    </div>
+                  </div>
+                </div>
+
+                {/* 진행바(인라인 스타일로 독립 동작) */}
+                <div
+                  aria-label="남은 회차 비율"
+                  style={{
+                    height: 6,
+                    width: '100%',
+                    background: '#F3F4F6',
+                    borderRadius: 999,
+                    overflow: 'hidden',
+                    marginTop: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${pct}%`,
+                      background: 'var(--primary)',
+                      borderRadius: 999,
+                      transition: 'width .3s ease',
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
+
+// 로그인만 요구(권한 제한 없음)
+export default withAuth(MyPage);

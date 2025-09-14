@@ -1,70 +1,81 @@
-"use client";
+// app/login/page.tsx
+'use client';
 
-import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const sp = useSearchParams();
+  const next = sp.get('next') || '/';
 
-  async function onLogin(e: React.FormEvent) {
+  const [email, setEmail] = useState('');        // ✅ placeholder 아님 (실제 값)
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
-    setLoading(true);
+    if (!email) return setMsg('이메일을 입력하세요.');
+    if (!password) return setMsg('비밀번호를 입력하세요.');
+
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      setMsg("로그인 성공! 이동합니다…");
-      router.push("/mypage"); // 로그인 후 이동할 곳
+      setLoading(true);
+      console.log('[login] submit', { email });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      console.log('[login] result', { data, error });
+
+      if (error) {
+        setMsg(error.message || '로그인 실패');
+        setLoading(false);
+        return;
+      }
+      router.replace(next);
+      router.refresh();
     } catch (err: any) {
-      setMsg(err?.message ?? "로그인 실패");
+      console.error('[login] catch', err);
+      setMsg(err?.message || '로그인 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <main style={{ padding: 24, maxWidth: 420, margin: "0 auto" }}>
-      <h1>로그인</h1>
-      <form onSubmit={onLogin} style={{ display: "grid", gap: 12, marginTop: 16 }}>
-        <input
-          type="email"
-          placeholder="이메일"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ padding: 10, border: "1px solid #ccc", borderRadius: 8 }}
-        />
-        <input
-          type="password"
-          placeholder="비밀번호"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ padding: 10, border: "1px solid #ccc", borderRadius: 8 }}
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ padding: "10px 14px", borderRadius: 10, background: "#000", color: "#fff" }}
-        >
-          {loading ? "로그인 중…" : "로그인"}
-        </button>
-        {msg && <div style={{ fontSize: 14 }}>{msg}</div>}
-      </form>
+    <div className="container-page">
+      <div className="card space-y-5">
+        <h2>로그인</h2>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="label">이메일</label>
+            <input
+              type="email"
+              autoComplete="email"
+              className="input"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.currentTarget.value)}
+            />
+          </div>
+          <div>
+            <label className="label">비밀번호</label>
+            <input
+              type="password"
+              autoComplete="current-password"
+              className="input"
+              placeholder="********"
+              value={password}
+              onChange={(e) => setPassword(e.currentTarget.value)}
+            />
+          </div>
+          <button type="submit" disabled={loading} className="btn btn-primary">
+            {loading ? '로그인 중…' : '로그인'}
+          </button>
+        </form>
 
-      <div style={{ marginTop: 16 }}>
-        <button
-          onClick={async () => { await supabase.auth.signOut(); alert("로그아웃됨"); }}
-          style={{ padding: "8px 12px", borderRadius: 8, background: "#eee" }}
-        >
-          로그아웃
-        </button>
+        {msg && <div className="toast toast-error">{msg}</div>}
       </div>
-    </main>
+    </div>
   );
 }
