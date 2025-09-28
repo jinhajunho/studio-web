@@ -1,3 +1,4 @@
+// app/calendar/page.tsx
 'use client';
 
 import * as React from 'react';
@@ -64,9 +65,6 @@ export default function CalendarPage() {
   const [userId, setUserId] = React.useState<string | null>(null);
   const [instructors, setInstructors] = React.useState<InstructorOption[]>([]);
 
-  const [isInstructor, setIsInstructor] = React.useState(false);
-  const [isAdmin, setIsAdmin] = React.useState(false);
-
   // 취소 포함 토글
   const [showCanceled, setShowCanceled] = React.useState(false);
 
@@ -83,68 +81,30 @@ export default function CalendarPage() {
       const { data } = await supabase.auth.getUser();
       setUserId(data.user?.id ?? null);
 
-      const { data: ins } = await supabase
+      const { data: ins, error: insErr } = await supabase
         .from('instructors')
         .select('id,name')
         .order('name', { ascending: true });
+      if (insErr) {
+        // 강사 테이블이 없거나 RLS로 막혀도 캘린더는 동작해야 하므로 조용히 무시
+        return;
+      }
       if (ins) setInstructors(ins);
     })();
   }, []);
 
-  // 역할 판별
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const { data: ures } = await supabase.auth.getUser();
-        const u = ures.user;
-        if (!u) {
-          setIsInstructor(false);
-          setIsAdmin(false);
-          return;
-        }
-        const { data: inst } = await supabase
-          .from('instructors')
-          .select('id')
-          .eq('id', u.id)
-          .maybeSingle();
-        setIsInstructor(Boolean(inst));
-
-        const { data: who } = await supabase.rpc('admin_whoami');
-        const isAdm = Array.isArray(who) ? who[0]?.is_admin : (who as any)?.is_admin;
-        setIsAdmin(!!isAdm);
-      } catch {
-        setIsInstructor(false);
-        setIsAdmin(false);
-      }
-    })();
-  }, []);
-
-  // ===== 세션 로드 =====
+  // ===== 세션 로드 (모두 보기; 프론트에서 권한 필터 없음) =====
   const loadSessions = React.useCallback(async () => {
     setLoading(true);
     setErr(null);
     try {
-      let q = supabase
+      const { data, error } = await supabase
         .from('sessions')
         .select('id, title, starts_at, ends_at, status, location, member_id, instructor_id')
         .gte('starts_at', startISO)
         .lt('starts_at', endISO)
         .order('starts_at', { ascending: true });
 
-      const { data: ures } = await supabase.auth.getUser();
-      const u = ures.user;
-
-      if (!isAdmin) {
-        if (isInstructor && u?.id) {
-          q = q.eq('instructor_id', u.id);
-        } else if (u?.id) {
-          q = q.eq('member_id', u.id);
-        } else {
-          q = q.limit(0);
-        }
-      }
-
-      const { data, error } = await q;
       if (error) throw error;
 
       const mapped: StudioEvent[] =
@@ -157,11 +117,11 @@ export default function CalendarPage() {
               title: s.title,
               start: s.starts_at,
               end: s.ends_at ?? s.starts_at,
-              // 색상은 globals.css의 ev-* 클래스로 적용하므로 클래스만 부여해도 됨
               extendedProps: {
                 status: st,
                 location: s.location,
                 memberId: s.member_id,
+                instructorId: s.instructor_id, // 편집 시 기본값 채우기 용
               },
             };
           });
@@ -173,25 +133,21 @@ export default function CalendarPage() {
     } finally {
       setLoading(false);
     }
-  }, [startISO, endISO, isInstructor, isAdmin, showCanceled]);
+  }, [startISO, endISO, showCanceled]);
 
   React.useEffect(() => {
     loadSessions();
   }, [loadSessions]);
 
-  // ===== CRUD =====
+  // ===== CRUD (프론트에서는 권한 체크 없음; 실패 시 DB/RLS 오류를 메시지로 표시) =====
   async function createSession(vals: any) {
     try {
-      if (!isInstructor && !isAdmin) {
-        toast.error('세션 생성 권한이 없습니다.');
-        return;
-      }
       if (!vals.startAt || !vals.endAt) throw new Error('시작/종료 시간을 입력하세요.');
       const s = new Date(vals.startAt), e = new Date(vals.endAt);
       if (!(s.getTime() < e.getTime())) throw new Error('종료 시간이 시작보다 뒤여야 합니다.');
 
-      // 강사 id 결정 & 검증 (FK 보호)
-      const chosenInstructorId = vals.instructorId || (isInstructor ? userId : '');
+      // instructor_id는 스키마상 필수일 가능성이 높으므로 FK 검증
+      const chosenInstructorId = vals.instructorId || '';
       if (!chosenInstructorId) throw new Error('강사를 선택하세요.');
 
       const { data: found } = await supabase
@@ -224,10 +180,6 @@ export default function CalendarPage() {
 
   async function updateSession(id: string, vals: any) {
     try {
-      if (!isInstructor && !isAdmin) {
-        toast.error('세션 수정 권한이 없습니다.');
-        return;
-      }
       const s = new Date(vals.startAt), e = new Date(vals.endAt);
       if (!(s.getTime() < e.getTime())) throw new Error('종료 시간이 시작보다 뒤여야 합니다.');
 
@@ -240,7 +192,6 @@ export default function CalendarPage() {
         member_id: vals.memberId || null,
       };
       if (vals.instructorId) {
-        // 변경 시에도 FK 검증
         const { data: found } = await supabase
           .from('instructors')
           .select('id')
@@ -250,10 +201,7 @@ export default function CalendarPage() {
         payload.instructor_id = vals.instructorId;
       }
 
-      let q = supabase.from('sessions').update(payload).eq('id', id);
-      if (!isAdmin && userId) q = q.eq('instructor_id', userId);
-
-      const { error } = await q.single();
+      const { error } = await supabase.from('sessions').update(payload).eq('id', id).single();
       if (error) throw error;
 
       setOpen(false);
@@ -266,17 +214,10 @@ export default function CalendarPage() {
 
   async function updateSessionTime(id: string, start: Date, end: Date) {
     try {
-      if (!isInstructor && !isAdmin) {
-        toast.error('시간 변경 권한이 없습니다.');
-        return;
-      }
-      let q = supabase
+      const { error } = await supabase
         .from('sessions')
         .update({ starts_at: start.toISOString(), ends_at: end.toISOString() })
         .eq('id', id);
-      if (!isAdmin && userId) q = q.eq('instructor_id', userId);
-
-      const { error } = await q;
       if (error) throw error;
 
       await loadSessions();
@@ -288,14 +229,7 @@ export default function CalendarPage() {
 
   async function deleteSession(id: string) {
     try {
-      if (!isInstructor && !isAdmin) {
-        toast.error('세션 삭제 권한이 없습니다.');
-        return;
-      }
-      let q = supabase.from('sessions').delete().eq('id', id);
-      if (!isAdmin && userId) q = q.eq('instructor_id', userId);
-
-      const { error } = await q;
+      const { error } = await supabase.from('sessions').delete().eq('id', id);
       if (error) throw error;
 
       setOpen(false);
@@ -342,24 +276,19 @@ export default function CalendarPage() {
 
           <Button
             onClick={() => {
-              if (!isInstructor && !isAdmin) {
-                toast.error('강사 또는 관리자만 세션을 생성할 수 있습니다.');
-                return;
-              }
               setMode('create');
               setSelectedId(null);
               setInitialValues({
                 title: '',
                 startAt: '',
                 endAt: '',
-                instructorId: isInstructor ? (userId ?? '') : '', // 강사만 기본값
+                instructorId: '', // 권한 분기 제거: 기본값 없음 → 사용자가 선택
                 status: 'scheduled',
                 location: '',
                 memberId: '',
               });
               setOpen(true);
             }}
-            disabled={!isInstructor && !isAdmin}
           >
             + 새 세션
           </Button>
@@ -376,17 +305,13 @@ export default function CalendarPage() {
       <StudioCalendar
         events={events}
         onSelectRange={(s, e) => {
-          if (!isInstructor && !isAdmin) {
-            toast.error('강사 또는 관리자만 세션을 생성할 수 있습니다.');
-            return;
-          }
           setMode('create');
           setSelectedId(null);
           setInitialValues({
             title: '',
             startAt: toLocalInputValue(s),
             endAt: toLocalInputValue(e),
-            instructorId: isInstructor ? (userId ?? '') : '',
+            instructorId: '', // 사용자가 선택
             status: 'scheduled',
             location: '',
             memberId: '',
@@ -400,7 +325,7 @@ export default function CalendarPage() {
             title: ev.title,
             startAt: toLocalInputValue(new Date(ev.start as any)),
             endAt: toLocalInputValue(new Date(ev.end as any)),
-            instructorId: isInstructor ? (userId ?? '') : '',
+            instructorId: (ev.extendedProps as any)?.instructorId || '',
             status: (ev.extendedProps as any)?.status ?? 'scheduled',
             location: (ev.extendedProps as any)?.location ?? '',
             memberId: (ev.extendedProps as any)?.memberId ?? '',

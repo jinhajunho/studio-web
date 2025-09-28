@@ -16,5 +16,4 @@ function AdminPage() {
 }
 
 // admin 권한만 접근 허용
-export default withAuth(AdminPage, { allowedRoles: ['admin'] });
-
+export default withAuth(AdminPage);

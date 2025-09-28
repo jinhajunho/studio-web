@@ -6,68 +6,32 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-type WithAuthOptions = { allowedRoles?: string[] };
-
-export function withAuth<P extends Record<string, unknown>>(
-  Wrapped: ComponentType<P>,
-  opts: WithAuthOptions = {}
-) {
+/** 로그인 여부만 확인하는 HOC (권한/역할 체크 없음) */
+export function withAuth<P extends Record<string, unknown>>(Wrapped: ComponentType<P>) {
   function Guard(props: P) {
     const router = useRouter();
     const pathname = usePathname();
-    const [ok, setOk] = useState<null | boolean>(null);
+    const [checking, setChecking] = useState(true);
 
     useEffect(() => {
       let alive = true;
 
       (async () => {
-        const { data, error } = await supabase.auth.getUser();
+        const { data: { user }, error } = await supabase.auth.getUser();
         if (!alive) return;
 
-        const user = data?.user;
         if (error || !user) {
-          setOk(false);
-          router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+          router.replace(`/login?next=${encodeURIComponent(pathname || '/')}`);
           return;
         }
-
-        if (opts.allowedRoles?.length) {
-          let allowed = true;
-
-          if (opts.allowedRoles.includes('admin')) {
-            try {
-              const { data: rpc } = await supabase.rpc('admin_whoami');
-              if (rpc && typeof rpc.is_admin !== 'undefined') {
-                allowed = !!rpc.is_admin;
-              } else {
-                const roles: string[] = (user.app_metadata as any)?.roles || [];
-                const metaRole = (user.user_metadata as any)?.role;
-                allowed = roles.includes('admin') || metaRole === 'admin';
-              }
-            } catch {
-              const roles: string[] = (user.app_metadata as any)?.roles || [];
-              const metaRole = (user.user_metadata as any)?.role;
-              allowed = roles.includes('admin') || metaRole === 'admin';
-            }
-          }
-
-          if (!allowed) {
-            setOk(false);
-            router.replace('/403');
-            return;
-          }
-        }
-
-        setOk(true);
+        setChecking(false);
       })();
 
       const { data: sub } = supabase.auth.onAuthStateChange((_ev, session) => {
         if (!alive) return;
         if (!session) {
-          setOk(false);
-          router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+          router.replace(`/login?next=${encodeURIComponent(pathname || '/')}`);
         } else {
-          setOk(true);
           router.refresh();
         }
       });
@@ -76,14 +40,13 @@ export function withAuth<P extends Record<string, unknown>>(
         alive = false;
         sub.subscription?.unsubscribe();
       };
-    }, [pathname, router]);
+    }, [router, pathname]);
 
-    if (ok === null) return <div style={{ padding: 20 }}>확인 중…</div>;
-    if (!ok) return null;
-
+    if (checking) return <div style={{ padding: 20 }}>로그인 확인 중…</div>;
     return <Wrapped {...props} />;
   }
 
-  (Guard as any).displayName = `withAuth(${(Wrapped as any).displayName || (Wrapped as any).name || 'Component'})`;
+  (Guard as any).displayName =
+    `withAuth(${(Wrapped as any).displayName || (Wrapped as any).name || 'Component'})`;
   return Guard;
 }

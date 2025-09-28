@@ -1,3 +1,4 @@
+// app/admin/layout.tsx
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -20,46 +21,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     let mounted = true;
 
     (async () => {
-      // 1) 세션 확인
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      // 1) 로그인 세션만 확인 (권한/역할 체크 없음)
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      if (error || !session) {
         const next = encodeURIComponent(pathname || '/admin');
         safeReplace(`/login?next=${next}`);
         return;
       }
 
-      // 2) 역할 확인 (app_metadata 우선)
-      const role =
-        (session.user?.app_metadata as any)?.role ??
-        (session.user?.user_metadata as any)?.role ??
-        null;
-
-      if (role !== 'admin') {
-        // 2-1) 필요시 RPC로 교차확인 (없으면 건너뛰어도 됨)
-        try {
-          const { data, error } = await supabase.rpc('admin_whoami');
-          const isAdmin = error
-            ? false
-            : Array.isArray(data)
-              ? data?.[0]?.is_admin
-              : (data as any)?.is_admin;
-
-          if (!isAdmin) {
-            safeReplace('/403');
-            return;
-          }
-        } catch {
-          safeReplace('/403');
-          return;
-        }
-      }
-
-      if (mounted) setStatus('ok');
+      setStatus('ok');
     })();
 
-    // 토큰 갱신 시 레이아웃 새로고침
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      router.refresh();
+    // 토큰/세션 변경 시 동작
+    const { data: sub } = supabase.auth.onAuthStateChange((_ev, session) => {
+      if (!session) {
+        const next = encodeURIComponent(pathname || '/admin');
+        safeReplace(`/login?next=${next}`);
+      } else {
+        router.refresh();
+      }
     });
 
     return () => {
@@ -71,7 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (status === 'loading') {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        관리자 권한 확인 중…
+        로그인 확인 중…
       </div>
     );
   }

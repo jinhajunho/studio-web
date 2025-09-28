@@ -77,4 +77,4 @@ function PassesPage() {
   );
 }
 
-export default withAuth(PassesPage, { allowedRoles: ['admin'] });
+export default withAuth(PassesPage);
