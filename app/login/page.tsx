@@ -1,5 +1,6 @@
 // app/login/page.tsx
 'use client';
+export const dynamic = 'force-dynamic';   // 👈 프리렌더링/SSG 옵트아웃
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
