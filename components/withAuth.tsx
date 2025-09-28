@@ -6,47 +6,41 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-/** 로그인 여부만 확인하는 HOC (권한/역할 체크 없음) */
-export function withAuth<P extends Record<string, unknown>>(Wrapped: ComponentType<P>) {
+export function withAuth<P extends Record<string, unknown>>(
+  Wrapped: ComponentType<P>
+) {
   function Guard(props: P) {
     const router = useRouter();
     const pathname = usePathname();
-    const [checking, setChecking] = useState(true);
+    const [ok, setOk] = useState<null | boolean>(null);
 
     useEffect(() => {
-      let alive = true;
+      let mounted = true;
 
       (async () => {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (!alive) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-        if (error || !user) {
-          router.replace(`/login?next=${encodeURIComponent(pathname || '/')}`);
-          return;
+        if (!session) {
+          // 로그인 안 되어 있으면 로그인 페이지로 리다이렉트
+          const next = encodeURIComponent(pathname || '/');
+          router.replace(`/login?next=${next}`);
+          setOk(false);
+        } else {
+          setOk(true);
         }
-        setChecking(false);
       })();
 
-      const { data: sub } = supabase.auth.onAuthStateChange((_ev, session) => {
-        if (!alive) return;
-        if (!session) {
-          router.replace(`/login?next=${encodeURIComponent(pathname || '/')}`);
-        } else {
-          router.refresh();
-        }
-      });
-
       return () => {
-        alive = false;
-        sub.subscription?.unsubscribe();
+        mounted = false;
       };
-    }, [router, pathname]);
+    }, [pathname, router]);
 
-    if (checking) return <div style={{ padding: 20 }}>로그인 확인 중…</div>;
+    if (ok === null) return null; // 로딩 중엔 아무것도 안 보여줌
+    if (!ok) return null;         // 리다이렉트 준비 중
+
     return <Wrapped {...props} />;
   }
 
-  (Guard as any).displayName =
-    `withAuth(${(Wrapped as any).displayName || (Wrapped as any).name || 'Component'})`;
   return Guard;
 }

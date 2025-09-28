@@ -1,6 +1,6 @@
 // app/layout.tsx
 import './globals.css';
-import AuthListener from '@/components/AuthListener';
+import AuthListener from '@/components/auth/AuthListener';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
