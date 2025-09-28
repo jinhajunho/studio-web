@@ -1,17 +1,19 @@
 // app/login/page.tsx
 'use client';
-export const dynamic = 'force-dynamic';   // 👈 프리렌더링/SSG 옵트아웃
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-export default function LoginPage() {
+// (선택) 프리렌더 옵트아웃이 필요하면 유지
+export const dynamic = 'force-dynamic';
+
+function LoginView() {
   const router = useRouter();
   const sp = useSearchParams();
   const next = sp.get('next') || '/';
 
-  const [email, setEmail] = useState('');        // ✅ placeholder 아님 (실제 값)
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -24,10 +26,7 @@ export default function LoginPage() {
 
     try {
       setLoading(true);
-      console.log('[login] submit', { email });
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      console.log('[login] result', { data, error });
-
       if (error) {
         setMsg(error.message || '로그인 실패');
         setLoading(false);
@@ -36,7 +35,6 @@ export default function LoginPage() {
       router.replace(next);
       router.refresh();
     } catch (err: any) {
-      console.error('[login] catch', err);
       setMsg(err?.message || '로그인 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
@@ -78,5 +76,14 @@ export default function LoginPage() {
         {msg && <div className="toast toast-error">{msg}</div>}
       </div>
     </div>
+  );
+}
+
+// ✅ Next가 요구하는 Suspense 경계로 감싸서 빌드 에러 제거
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <LoginView />
+    </Suspense>
   );
 }
