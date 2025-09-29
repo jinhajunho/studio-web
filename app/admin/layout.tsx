@@ -3,6 +3,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import type { Route } from 'next';                // ⬅ 추가
 import { supabase } from '@/lib/supabaseClient';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -11,7 +12,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [status, setStatus] = useState<'loading' | 'ok'>('loading');
   const redirected = useRef(false);
 
-  const safeReplace = (href: string) => {
+  const safeReplace = (href: Route) => {          // ⬅ 파라미터 타입을 Route로
     if (redirected.current) return;
     redirected.current = true;
     router.replace(href);
@@ -19,26 +20,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     let canceled = false;
-
     (async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (canceled) return;
 
       if (error || !session) {
         const next = encodeURIComponent(pathname || '/admin');
-        safeReplace(`/login?next=${next}`);
+        safeReplace(`/login?next=${next}` as Route); // ⬅ 호출부에서 캐스팅
         return;
       }
-
       setStatus('ok');
     })();
-
     return () => { canceled = true; };
   }, [pathname, router]);
 
   if (status === 'loading') {
     return <div className="flex min-h-[50vh] items-center justify-center">로그인 확인 중…</div>;
   }
-
   return <>{children}</>;
 }
