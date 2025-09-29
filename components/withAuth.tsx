@@ -6,6 +6,10 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
+/**
+ * ✅ 페이지 접근 보호 HOC
+ * 로그인만 확인 (추가 권한 확인은 개별 페이지에서 처리)
+ */
 export function withAuth<P extends Record<string, unknown>>(
   Wrapped: ComponentType<P>
 ) {

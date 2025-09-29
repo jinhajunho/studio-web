@@ -1,3 +1,4 @@
+// components/StudioCalendar.tsx
 'use client';
 
 import * as React from 'react';
@@ -7,7 +8,10 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput } from '@fullcalendar/core';
 
-// CSS는 layout.tsx(CDN) 또는 globals.css에서 로드
+// ✅ 스타일이 없으면 레이아웃이 깨지니 CSS 임포트 꼭 유지하세요.
+import '@fullcalendar/core/main.css';
+import '@fullcalendar/daygrid/main.css';
+import '@fullcalendar/timegrid/main.css';
 
 export type StudioEvent = EventInput & {
   id: string;
@@ -50,13 +54,13 @@ export default function StudioCalendar({
         allDaySlot={false}
         slotMinTime="06:00:00"
         slotMaxTime="23:00:00"
-        nowIndicator={true}
+        nowIndicator
         selectable={selectable}
-        selectMirror={true}
-        editable={true}
-        eventDurationEditable={true}
-        eventStartEditable={true}
-        dayMaxEvents={true}
+        selectMirror
+        editable
+        eventDurationEditable
+        eventStartEditable
+        dayMaxEvents
         events={events as EventInput[]}
         select={(arg) => {
           if (!selectable) return;
@@ -80,12 +84,12 @@ export default function StudioCalendar({
           const ev = arg.event;
           onEventChange?.(String(ev.id), ev.start!, ev.end ?? ev.start!);
         }}
-        // 상태별 클래스 부여 → globals.css에서 색상/줄긋기 적용
+        // 상태별 클래스 → Tailwind로 색 구분 가능
         eventClassNames={(arg) => {
           const status = (arg.event.extendedProps as any)?.status;
-          if (status === 'canceled') return ['ev-canceled'];
-          if (status === 'completed') return ['ev-completed'];
-          return ['ev-scheduled'];
+          if (status === 'canceled') return ['line-through', 'opacity-60'];
+          if (status === 'completed') return ['border-emerald-300'];
+          return [];
         }}
         height="78vh"
       />

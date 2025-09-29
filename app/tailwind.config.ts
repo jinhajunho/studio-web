@@ -1,24 +1,29 @@
 // tailwind.config.ts
 import type { Config } from 'tailwindcss'
+
 const config: Config = {
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: [
+    './app/**/*.{js,ts,jsx,tsx}',
+    './components/**/*.{js,ts,jsx,tsx}',
+  ],
   theme: {
     extend: {
-      colors:{
-        primary:'var(--primary)',
-        secondary:'var(--secondary)',
-        success:'var(--success)',
-        warning:'var(--warning)',
-        error:'var(--error)',
-        info:'var(--info)',
-        surface:'var(--surface)',
-        ink:'var(--text)',
-        muted:'var(--muted)',
-        border:'var(--border)',
+      colors: {
+        primary: 'var(--primary)',
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        error: 'var(--error)',
       },
-      borderRadius:{ '2xl':'var(--radius)' }
-    }
+      borderRadius: {
+        DEFAULT: 'var(--radius)',
+        lg: 'calc(var(--radius) * 1.25)',
+        xl: 'calc(var(--radius) * 1.5)',
+        '2xl': 'calc(var(--radius) * 2)',
+      },
+    },
   },
-  plugins:[]
+  darkMode: 'class',
+  plugins: [],
 }
+
 export default config

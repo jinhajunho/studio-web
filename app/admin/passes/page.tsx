@@ -7,11 +7,9 @@ import { supabase } from '@/lib/supabaseClient';
 import GrantPassForm from './GrantPassForm';
 
 type Member = { id: string; email: string; name?: string | null };
-type Promotion = { id: string; name: string; bonus_sessions?: number | null };
 
 function PassesPage() {
   const [members, setMembers] = useState<Member[]>([]);
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -21,15 +19,14 @@ function PassesPage() {
       setLoading(true);
       setErr(null);
       try {
-        const [{ data: mData, error: mErr }, { data: pData, error: pErr }] = await Promise.all([
-          supabase.from('members').select('id,email,name').order('email', { ascending: true }),
-          supabase.from('promotions').select('id,name,bonus_sessions').eq('is_active', true).order('name', { ascending: true }),
-        ]);
-        if (mErr) throw mErr;
-        if (pErr) throw pErr;
+        const { data, error } = await supabase
+          .from('members')
+          .select('id,email,name')
+          .order('email', { ascending: true });
+
+        if (error) throw error;
         if (!mounted) return;
-        setMembers(mData ?? []);
-        setPromotions(pData ?? []);
+        setMembers(data ?? []);
       } catch (e: any) {
         if (!mounted) return;
         setErr(e?.message ?? '데이터를 불러오지 못했습니다.');
@@ -68,10 +65,10 @@ function PassesPage() {
         <div>
           <h2>수강권 지급</h2>
           <p className="text-sm text-[color:var(--muted)] mt-1">
-            회원에게 수강권을 발급합니다. 이벤트명/추가 회차는 선택사항입니다.
+            회원에게 수강권을 발급합니다. 이벤트명과 추가 회차를 직접 입력하세요.
           </p>
         </div>
-        <GrantPassForm members={members} promotions={promotions} />
+        <GrantPassForm members={members} />
       </div>
     </div>
   );

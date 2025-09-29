@@ -5,7 +5,6 @@ import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
-// (선택) 프리렌더 옵트아웃이 필요하면 유지
 export const dynamic = 'force-dynamic';
 
 function LoginView() {
@@ -21,12 +20,13 @@ function LoginView() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
+
     if (!email) return setMsg('이메일을 입력하세요.');
     if (!password) return setMsg('비밀번호를 입력하세요.');
 
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         setMsg(error.message || '로그인 실패');
         setLoading(false);
@@ -43,7 +43,7 @@ function LoginView() {
 
   return (
     <div className="container-page">
-      <div className="card space-y-5">
+      <div className="card space-y-5" style={{ maxWidth: 420, margin: '0 auto' }}>
         <h2>로그인</h2>
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
@@ -68,7 +68,8 @@ function LoginView() {
               onChange={(e) => setPassword(e.currentTarget.value)}
             />
           </div>
-          <button type="submit" disabled={loading} className="btn btn-primary">
+
+          <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%' }}>
             {loading ? '로그인 중…' : '로그인'}
           </button>
         </form>
@@ -79,7 +80,6 @@ function LoginView() {
   );
 }
 
-// ✅ Next가 요구하는 Suspense 경계로 감싸서 빌드 에러 제거
 export default function Page() {
   return (
     <Suspense fallback={null}>

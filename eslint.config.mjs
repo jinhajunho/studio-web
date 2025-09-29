@@ -1,38 +1,28 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+// eslint.config.mjs
+import js from "@eslint/js";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import react from "eslint-plugin-react";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  // ✅ Next.js 기본 설정
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-
-  // ✅ 공통 무시 경로
+export default [
+  { ignores: ["**/dist/**", "**/.next/**"] },
   {
-    ignores: [
-      "node_modules/**",
-      ".next/**",
-      "out/**",
-      "build/**",
-      "next-env.d.ts",
-    ],
-  },
-
-  // ✅ 규칙 오버라이드 (여기에 추가)
-  {
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.{js,ts,jsx,tsx}"],
+    languageOptions: {
+      ecmaVersion: 2020,
+      sourceType: "module",
+      globals: globals.browser,
+    },
+    plugins: {
+      react,
+      "@typescript-eslint": tseslint.plugin,
+    },
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",       // any 허용
-      "@typescript-eslint/no-unused-vars": "warn",       // 미사용 변수 경고
-      "react-hooks/exhaustive-deps": "off",              // useEffect deps 경고 끄기 (필요 시)
+      ...js.configs.recommended.rules,
+      ...tseslint.configs.recommended[0].rules,
+      ...react.configs.recommended.rules,
+      "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off"
     },
   },
 ];
-
-export default eslintConfig;

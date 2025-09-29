@@ -1,10 +1,7 @@
+// components/SessionDrawer.tsx
 'use client';
 
 import * as React from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
 
 export type SessionInput = {
   title: string;
@@ -26,15 +23,9 @@ type Props = {
   onDelete?: () => Promise<void>;
 };
 
-const STATUS_OPTIONS = [
-  { value: 'scheduled', label: '예정' },
-  { value: 'completed', label: '완료' },
-  { value: 'canceled',  label: '취소' },
-] as const;
-
 /** undefined/null → ''로 고정해서 uncontrolled 경고 방지 */
 function normalize(v: Partial<SessionInput> | undefined): SessionInput {
-  const ok = ['scheduled','completed','canceled'] as const;
+  const ok = ['scheduled', 'completed', 'canceled'] as const;
   const st = ok.includes(v?.status as any) ? (v?.status as any) : 'scheduled';
   return {
     title: v?.title ?? '',
@@ -58,22 +49,36 @@ export default function SessionDrawer({
 }: Props) {
   const [form, setForm] = React.useState<SessionInput>(() => normalize(initialValues));
   const [loading, setLoading] = React.useState(false);
+  const drawerRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     if (open) setForm(normalize(initialValues));
   }, [open, initialValues]);
 
-  const change = (k: keyof SessionInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(prev => ({ ...prev, [k]: e.target.value as any }));
+  // ESC로 닫기
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onOpenChange(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onOpenChange]);
+
+  const change =
+    (k: keyof SessionInput) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm((prev) => ({ ...prev, [k]: e.target.value as any }));
 
   const handleSubmit = async () => {
     if (!form.startAt || !form.endAt) {
-      toast.error('시작/종료 시간을 입력하세요.');
+      alert('시작/종료 시간을 입력하세요.');
       return;
     }
-    const s = new Date(form.startAt), e = new Date(form.endAt);
+    const s = new Date(form.startAt),
+      e = new Date(form.endAt);
     if (e <= s) {
-      toast.error('종료 시간이 시작보다 뒤여야 합니다.');
+      alert('종료 시간이 시작보다 뒤여야 합니다.');
       return;
     }
     setLoading(true);
@@ -81,7 +86,7 @@ export default function SessionDrawer({
       await onSubmit(form);
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err?.message || '저장 실패');
+      alert(err?.message || '저장 실패');
     } finally {
       setLoading(false);
     }
@@ -89,12 +94,13 @@ export default function SessionDrawer({
 
   const handleDelete = async () => {
     if (!onDelete) return;
+    if (!confirm('정말 삭제할까요?')) return;
     setLoading(true);
     try {
       await onDelete();
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err?.message || '삭제 실패');
+      alert(err?.message || '삭제 실패');
     } finally {
       setLoading(false);
     }
@@ -102,92 +108,159 @@ export default function SessionDrawer({
 
   return (
     <div
-      className={`fixed inset-0 z-50 ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}
+      className={`fixed inset-0 z-[100] ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}
       aria-hidden={!open}
     >
+      {/* Backdrop */}
       <div
         className={`absolute inset-0 bg-black/40 transition-opacity ${open ? 'opacity-100' : 'opacity-0'}`}
         onClick={() => onOpenChange(false)}
       />
+
+      {/* Panel */}
       <div
-        className={`absolute right-0 top-0 h-full w-full max-w-lg bg-white shadow-xl transition-transform ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        ref={drawerRef}
+        className={`absolute right-0 top-0 h-full w-full max-w-lg bg-white shadow-xl transition-transform ${
+          open ? 'translate-x-0' : 'translate-x-full'
+        }`}
         role="dialog"
         aria-modal="true"
         aria-label={mode === 'create' ? '새 세션' : '세션 수정'}
       >
-        <div className="p-4 border-b flex items-center justify-between">
-          <div className="text-lg font-semibold">
-            {mode === 'create' ? '새 세션' : '세션 수정'}
-          </div>
-          <button className="text-sm text-gray-500" onClick={() => onOpenChange(false)}>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b p-4">
+          <div className="text-lg font-semibold">{mode === 'create' ? '새 세션' : '세션 수정'}</div>
+          <button
+            className="text-sm text-gray-500 hover:text-gray-700"
+            onClick={() => onOpenChange(false)}
+          >
             닫기
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
+        {/* Body */}
+        <div className="space-y-3 p-4">
           <div>
-            <Label htmlFor="title">제목</Label>
-            <Input id="title" value={form.title} onChange={change('title')} placeholder="예: 오전 기구 필라테스" />
+            <label className="mb-1 block text-sm text-gray-700" htmlFor="title">
+              제목
+            </label>
+            <input
+              id="title"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-400"
+              placeholder="예: 오전 기구 필라테스"
+              value={form.title}
+              onChange={change('title')}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="start">시작</Label>
-              <Input id="start" type="datetime-local" value={form.startAt} onChange={change('startAt')} />
+              <label className="mb-1 block text-sm text-gray-700" htmlFor="start">
+                시작
+              </label>
+              <input
+                id="start"
+                type="datetime-local"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-400"
+                value={form.startAt}
+                onChange={change('startAt')}
+              />
             </div>
             <div>
-              <Label htmlFor="end">종료</Label>
-              <Input id="end" type="datetime-local" value={form.endAt} onChange={change('endAt')} />
+              <label className="mb-1 block text-sm text-gray-700" htmlFor="end">
+                종료
+              </label>
+              <input
+                id="end"
+                type="datetime-local"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-400"
+                value={form.endAt}
+                onChange={change('endAt')}
+              />
             </div>
           </div>
 
           <div>
-            <Label htmlFor="instructor">강사</Label>
+            <label className="mb-1 block text-sm text-gray-700" htmlFor="instructor">
+              강사
+            </label>
             <select
               id="instructor"
-              className="w-full border rounded px-2 py-1"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-400"
               value={form.instructorId}
               onChange={change('instructorId')}
             >
               <option value="">(선택)</option>
               {instructorOptions.map((o) => (
-                <option key={o.id} value={o.id}>{o.name}</option>
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
               ))}
             </select>
           </div>
 
           <div>
-            <Label htmlFor="location">장소</Label>
-            <Input id="location" value={form.location} onChange={change('location')} />
+            <label className="mb-1 block text-sm text-gray-700" htmlFor="location">
+              장소
+            </label>
+            <input
+              id="location"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-400"
+              value={form.location}
+              onChange={change('location')}
+            />
           </div>
 
           <div>
-            <Label htmlFor="member">회원 (ID/이메일)</Label>
-            <Input id="member" value={form.memberId} onChange={change('memberId')} placeholder="회원 ID 또는 이메일" />
+            <label className="mb-1 block text-sm text-gray-700" htmlFor="member">
+              회원 (ID/이메일)
+            </label>
+            <input
+              id="member"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-400"
+              placeholder="회원 ID 또는 이메일"
+              value={form.memberId}
+              onChange={change('memberId')}
+            />
           </div>
 
           <div>
-            <Label htmlFor="status">상태</Label>
+            <label className="mb-1 block text-sm text-gray-700" htmlFor="status">
+              상태
+            </label>
             <select
               id="status"
-              className="w-full border rounded px-2 py-1"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-400"
               value={form.status}
               onChange={change('status')}
             >
-              {STATUS_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
+              <option value="scheduled">예정</option>
+              <option value="completed">완료</option>
+              <option value="canceled">취소</option>
             </select>
           </div>
         </div>
 
-        <div className="p-4 border-t flex items-center justify-between">
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t p-4">
           {mode === 'edit' ? (
-            <Button variant="destructive" onClick={handleDelete} disabled={loading}>삭제</Button>
+            <button
+              onClick={handleDelete}
+              disabled={loading}
+              className="rounded-lg border border-rose-300 px-4 py-2 text-rose-600 hover:bg-rose-50 disabled:opacity-60"
+            >
+              삭제
+            </button>
           ) : (
             <span />
           )}
-          <Button onClick={handleSubmit} disabled={loading}>{loading ? '저장 중…' : '저장'}</Button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="rounded-lg bg-primary px-4 py-2 font-semibold text-white shadow hover:opacity-90 disabled:opacity-60"
+          >
+            {loading ? '저장 중…' : '저장'}
+          </button>
         </div>
       </div>
     </div>

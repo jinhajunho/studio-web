@@ -16,7 +16,7 @@ type SessionEvent = {
 
 function getMonthRange(date: Date) {
   const from = new Date(date.getFullYear(), date.getMonth(), 1);
-  const to   = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  const to = new Date(date.getFullYear(), date.getMonth() + 1, 1);
   return { fromISO: from.toISOString(), toISO: to.toISOString() };
 }
 
@@ -62,7 +62,9 @@ export function useSessions(viewDate: Date) {
         if (!abort) setLoading(false);
       }
     })();
-    return () => { abort = true; };
+    return () => {
+      abort = true;
+    };
   }, [fromISO, toISO]);
 
   return { events, loading, error, fromISO, toISO };
