@@ -1,4 +1,4 @@
-// app/admin/layout.tsx
+// /app/admin/layout.tsx
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -18,23 +18,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   useEffect(() => {
-    let mounted = true;
+    let canceled = false;
+
     (async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
-      if (!mounted) return;
+      if (canceled) return;
 
       if (error || !session) {
         const next = encodeURIComponent(pathname || '/admin');
         safeReplace(`/login?next=${next}`);
         return;
       }
+
       setStatus('ok');
     })();
-    return () => { mounted = false; };
+
+    return () => { canceled = true; };
   }, [pathname, router]);
 
   if (status === 'loading') {
     return <div className="flex min-h-[50vh] items-center justify-center">로그인 확인 중…</div>;
   }
+
   return <>{children}</>;
 }
